@@ -1,17 +1,19 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
+	"time"
 
 	"code.cloudfoundry.org/cfdev/cfanalytics"
 	"code.cloudfoundry.org/cfdev/config"
 	"code.cloudfoundry.org/cfdev/env"
 	gdn "code.cloudfoundry.org/cfdev/garden"
+	"code.cloudfoundry.org/garden/client"
 	"github.com/spf13/cobra"
 	analytics "gopkg.in/segmentio/analytics-go.v3"
 )
@@ -74,17 +76,18 @@ func (s *start) RunE() error {
 		return err
 	}
 
-	if err := s.mountOssDepIso(); err != nil {
-		return err
-	}
-	defer s.unMountOssDepIso()
+	// fmt.Println("DEBUG: Mounting ISO")
+	// if err := s.mountOssDepIso(); err != nil {
+	// 	return err
+	// }
+	// defer s.unMountOssDepIso()
 
 	// TODO ; sudo iptables -A FORWARD -j ACCEPT
 
-	if err := s.startGarden(); err != nil {
+	fmt.Println("DEBUG: Starting Garden")
+	if err := s.startGarden(garden); err != nil {
 		return err
 	}
-	gdn.WaitForGarden(garden)
 
 	s.UI.Say("Deploying the BOSH Director...")
 	if err := gdn.DeployBosh(garden); err != nil {
@@ -106,35 +109,47 @@ func (s *start) RunE() error {
 	return nil
 }
 
-func (s *start) mountOssDepIso() error {
-	u, err := user.Current()
-	if err != nil {
-		return fmt.Errorf("finding current user: %s", err)
-	}
-	isoPath := filepath.Join(s.Config.CFDevHome, "cache", "cf-oss-deps.iso")
-	cmd := exec.Command("sudo", "mount", "-o", "loop,uid="+u.Uid, isoPath, "/var/vcap/cache")
-	if out, err := cmd.Output(); err != nil {
-		os.Stdout.Write(out)
-		return fmt.Errorf("mounting %s as %s: %s", isoPath, u.Uid, err)
-	}
-	return nil
-}
+// func (s *start) mountOssDepIso() error {
+// 	u, err := user.Current()
+// 	if err != nil {
+// 		return fmt.Errorf("finding current user: %s", err)
+// 	}
+// 	isoPath := filepath.Join(s.Config.CFDevHome, "cache", "cf-oss-deps.iso")
+// 	exec.Command("sudo", "umount", "/var/vcap/cache").Run() // TODO maybe not????
+// 	os.MkdirAll("/var/vcap/cache", 0755)
+// 	cmd := exec.Command("sudo", "mount", "-o", "loop,uid="+u.Uid, isoPath, "/var/vcap/cache")
+// 	if out, err := cmd.CombinedOutput(); err != nil {
+// 		os.Stdout.Write(out)
+// 		return fmt.Errorf("mounting %s as %s: %s", isoPath, u.Uid, err)
+// 	}
+// 	return nil
+// }
+//
+// func (s *start) unMountOssDepIso() error {
+// 	cmd := exec.Command("sudo", "umount", "/var/vcap/cache")
+// 	if out, err := cmd.Output(); err != nil {
+// 		os.Stdout.Write(out)
+// 		return fmt.Errorf("unmounting cf-oss-deps.iso: %s", err)
+// 	}
+// 	return nil
+// }
 
-func (s *start) unMountOssDepIso() error {
-	cmd := exec.Command("sudo", "umount", "/var/vcap/cache")
-	if out, err := cmd.Output(); err != nil {
-		os.Stdout.Write(out)
-		return fmt.Errorf("unmounting cf-oss-deps.iso: %s", err)
-	}
-	return nil
-}
-
-func (s *start) startGarden() error {
-	// Add to below? --dns-server=8.8.8.8
+func (s *start) startGarden(garden client.Client) error {
 	// TODO download gdn cli
+	// TODO Inform user they need xfsprogs
+	var buf bytes.Buffer
+	// Add to below? --dns-server=8.8.8.8
 	s.gdnServer = exec.Command("sudo", "/var/vcap/gdn-1.12.1", "server", "--bind-socket=/var/vcap/gdn.socket")
+	s.gdnServer.Stdout = &buf
+	s.gdnServer.Stderr = &buf
 	if err := s.gdnServer.Start(); err != nil {
-		return fmt.Errorf("unmounting cf-oss-deps.iso: %s", err)
+		return fmt.Errorf("starting garden: %s", err)
+	}
+	fmt.Println("DEBUG: Waiting for Garden")
+	if err := gdn.WaitForGarden(garden, 2*time.Second); err != nil {
+		s.UI.Say(buf.String())
+		s.gdnServer.Process.Kill()
+		return fmt.Errorf("starting garden: %s", err)
 	}
 	if err := ioutil.WriteFile(filepath.Join(s.Config.CFDevHome, "garden.pid"), []byte(fmt.Sprintf("%d", s.gdnServer.Process.Pid)), 0644); err != nil {
 		s.gdnServer.Process.Kill()

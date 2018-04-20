@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"code.cloudfoundry.org/cfdev/cfanalytics"
 	"code.cloudfoundry.org/cfdev/config"
@@ -139,7 +140,7 @@ func (s *start) RunE() error {
 	if err != nil {
 		return err
 	}
-	gdn.WaitForGarden(garden)
+	gdn.WaitForGarden(garden, 3*time.Minute)
 
 	s.UI.Say("Deploying the BOSH Director...")
 	if err := gdn.DeployBosh(garden); err != nil {

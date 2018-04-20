@@ -20,8 +20,14 @@ func DeployBosh(client garden.Client) error {
 				DstPath: "/var/vcap",
 				Mode:    garden.BindMountModeRW,
 			},
+			// TODO macos vs linux and make linux generic to CfdevHome
+			// {
+			// 	SrcPath: "/var/vcap/cache",
+			// 	DstPath: "/var/vcap/cache",
+			// 	Mode:    garden.BindMountModeRO,
+			// },
 			{
-				SrcPath: "/var/vcap/cache",
+				SrcPath: "/home/dgodd/.cfdev/cache",
 				DstPath: "/var/vcap/cache",
 				Mode:    garden.BindMountModeRO,
 			},
