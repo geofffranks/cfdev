@@ -71,6 +71,9 @@ func (c *Cache) scan(dir string, clog *Catalog) ([]result, error) {
 	var results []result
 
 	for _, item := range clog.Items {
+		if item.URL == "" && item.MD5 == "" {
+			continue
+		}
 		itemPath := filepath.Join(dir, item.Name)
 		_, err := os.Stat(itemPath)
 

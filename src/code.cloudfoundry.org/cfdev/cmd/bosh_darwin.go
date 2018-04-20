@@ -7,8 +7,6 @@ import (
 	"code.cloudfoundry.org/cfdev/config"
 	gdn "code.cloudfoundry.org/cfdev/garden"
 	"code.cloudfoundry.org/cfdev/shell"
-	"code.cloudfoundry.org/garden/client"
-	"code.cloudfoundry.org/garden/client/connection"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +25,10 @@ func NewBosh(Exit chan struct{}, UI UI, Config config.Config) *cobra.Command {
 				os.Exit(128)
 			}()
 
-			gClient := client.New(connection.New("tcp", "localhost:8888"))
+			gClient, err := gdn.NewClient()
+			if err != nil {
+				return fmt.Errorf("failed to connect to garden: %v\n", err)
+			}
 			config, err := gdn.FetchBOSHConfig(gClient)
 			if err != nil {
 				return fmt.Errorf("failed to fetch bosh configuration: %v\n", err)
