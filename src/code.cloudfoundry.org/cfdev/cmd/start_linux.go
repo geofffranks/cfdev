@@ -59,11 +59,11 @@ func (s *start) RunE() error {
 	}
 
 	garden := gdn.NewClient()
-	if garden.Ping() == nil {
-		s.UI.Say("CF Dev is already running...")
-		cfanalytics.TrackEvent(cfanalytics.START_END, map[string]interface{}{"type": "cf", "alreadyrunning": true}, s.AnalyticsClient)
-		return nil
-	}
+	// if garden.Ping() == nil {
+	// 	s.UI.Say("CF Dev is already running...")
+	// 	cfanalytics.TrackEvent(cfanalytics.START_END, map[string]interface{}{"type": "cf", "alreadyrunning": true}, s.AnalyticsClient)
+	// 	return nil
+	// }
 
 	// TODO should this be the same on linux as on darwin????
 	registries, err := s.parseDockerRegistriesFlag(s.Registries)
@@ -76,21 +76,12 @@ func (s *start) RunE() error {
 		return err
 	}
 
-	// fmt.Println("DEBUG: Mounting ISO")
-	// if err := s.mountOssDepIso(); err != nil {
-	// 	return err
-	// }
-	// defer s.unMountOssDepIso()
-
-	// TODO ; sudo iptables -A FORWARD -j ACCEPT
-
-	fmt.Println("DEBUG: Starting Garden")
-	if err := s.startGarden(garden); err != nil {
-		return err
-	}
+	// USER RUN
+	// sudo iptables -A FORWARD -j ACCEPT
 
 	s.UI.Say("Deploying the BOSH Director...")
 	if err := gdn.DeployBosh(garden); err != nil {
+		fmt.Printf("Failed to deploy the BOSH Director: %v\n", err)
 		return fmt.Errorf("Failed to deploy the BOSH Director: %v\n", err)
 	}
 

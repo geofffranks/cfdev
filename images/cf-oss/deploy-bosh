@@ -6,7 +6,7 @@ create_loop_devices() {
   echo "creating loop devices..."
   for i in {0..255}
   do
-    mknod -m 0660 /dev/loop${i} b 7 $i || true
+    mknod -m 0660 /dev/loop${i} b 7 $i 2>/dev/null || true
   done
 }
 
@@ -46,6 +46,14 @@ exec 2>&1
 
 permit_device_control
 create_loop_devices
+
+if [ -f /var/vcar/socat && -f /var/vcap/gdn.socket ]; then
+	ifconfig lo:0 10.0.0.10
+	/var/vcap/socat tcp-listen:7777,reuseaddr,fork unix-connect:/var/vcap/gdn.socket &
+fi
+if [ -f /var/vcap/cfdev_cache/cf-oss-deps.iso ]; then
+  mount -o loop,ro /var/vcap/cfdev_cache/cf-oss-deps.iso /var/vcap/cache
+fi
 
 export BOSH_DIRECTOR_IP="10.245.0.2"
 
